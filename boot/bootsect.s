@@ -59,6 +59,8 @@ start:
 	rep
 	movw
 	jmpi	go,INITSEG ; 这里的作用是跳转到go标签处的偏移地址，也就是INITSEG + go处继续执行，刚好可以跳过上面逻辑，完美！
+
+; 在这里定义go执行后面的逻辑，start执行完后会通过上方的jmpi跳转到这里继续执行，到这里时就已经完成了boot的512字节复制功能
 go:	mov	ax,cs
 	mov	ds,ax
 	mov	es,ax
