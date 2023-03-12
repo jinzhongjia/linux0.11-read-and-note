@@ -60,7 +60,8 @@ start:
 	; 这里循环执行复制，每次一个字，从ds:si 到es:di 处，共复制256次,也就是复制了256个字,这里一个字是两个字节，16位，刚好将初始化读取的512个字节从#BOOTSEG复制到了#INITSEG
 	rep
 	movw
-	jmpi	go,INITSEG ; 这里的作用是跳转到go标签处的偏移地址，也就是INITSEG + go处继续执行，刚好可以跳过上面逻辑，完美！
+	jmpi go,INITSEG ;jmpi 是段间跳转指令
+	; 这里的作用是跳转到go标签处的偏移地址，也就是INITSEG + go处继续执行，刚好可以跳过上面逻辑，完美！
 
 ; 在这里定义go执行后面的逻辑，start执行完后会通过上方的jmpi跳转到这里继续执行，到这里时就已经完成了boot的512字节复制功能
 ; 注意：这里的cs是代码段寄存器，存放的是代码段基址，所以现在cs是0x9000
@@ -76,15 +77,18 @@ go:	mov	ax,cs
 	mov	ss,ax
 	; sp是栈基址寄存器,和ss（左移四位后）相加才变成栈地址,所以目前栈顶才是0x9FF00
 	mov	sp,#0xFF00		; arbitrary value >>512
+	; 到这里结束，已经设置完了数据段、代码段、堆栈段的地址（准确来说只是堆栈顶部的指针）
 
 ; load the setup-sectors directly after the bootblock.
 ; Note that 'es' is already set up.
 
 load_setup:
+	; 下面四个寄存器指定应该是指定的读取数据在硬盘开始位置和读取的数据大小,TODO
 	mov	dx,#0x0000		; drive 0, head 0
 	mov	cx,#0x0002		; sector 2, track 0
 	mov	bx,#0x0200		; address = 512, in INITSEG
 	mov	ax,#0x0200+SETUPLEN	; service 2, nr of sectors
+	; 这里的是为了出发0x13号中断，上面设置ax、bx、cx、dx,仅仅是传递参数进去
 	int	0x13			; read it
 	jnc	ok_load_setup		; ok - continue
 	mov	dx,#0x0000
