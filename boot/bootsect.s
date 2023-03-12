@@ -45,6 +45,8 @@ ENDSEG   = SYSSEG + SYSSIZE		; where to stop loading
 ;		0x301 - first partition on first drive etc
 ROOT_DEV = 0x306
 
+; 内存地址存储方式，基址:偏移地址，计算方式为基址左移四位（注意是二进制左移四位），设计成这样的原因是因为当时的地址线不够用，就这样设计了，具体可以自行去查找原因
+
 ; 定义了入口
 entry start
 start:
@@ -61,11 +63,18 @@ start:
 	jmpi	go,INITSEG ; 这里的作用是跳转到go标签处的偏移地址，也就是INITSEG + go处继续执行，刚好可以跳过上面逻辑，完美！
 
 ; 在这里定义go执行后面的逻辑，start执行完后会通过上方的jmpi跳转到这里继续执行，到这里时就已经完成了boot的512字节复制功能
+; 注意：这里的cs是代码段寄存器，存放的是代码段基址，所以现在cs是0x9000
+; 一下go的逻辑就是为了设置运行时需要的堆栈空间,堆栈是从高地址到地地址发展，设置的够高防止发生碰撞
 go:	mov	ax,cs
+	; ds是数据段寄存器，存放数据段基址，这里也把0x9000塞进去
 	mov	ds,ax
+	; es是附加段寄存器，存放附加段基址，也是0x9000
 	mov	es,ax
+; 接下来设置堆栈的范围，这里选区的地址是0x9ff00，注意下方是0xFF00，这只是偏移地址
 ; put stack at 0x9ff00.
+	; ss是栈段寄存器
 	mov	ss,ax
+	; sp是栈基址寄存器,和ss（左移四位后）相加才变成栈地址,所以目前栈顶才是0x9FF00
 	mov	sp,#0xFF00		; arbitrary value >>512
 
 ; load the setup-sectors directly after the bootblock.
