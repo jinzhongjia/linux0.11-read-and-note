@@ -83,16 +83,17 @@ go:	mov	ax,cs
 ; Note that 'es' is already set up.
 
 load_setup:
-	; 下面四个寄存器指定应该是指定的读取数据在硬盘开始位置和读取的数据大小,TODO
-	mov	dx,#0x0000		; drive 0, head 0
-	mov	cx,#0x0002		; sector 2, track 0
+	; 下面四个寄存器指定应该是指定的读取数据在硬盘开始位置和读取的数据大小
+	mov	dx,#0x0000		; drive 0, head 0 dh是磁头号，dl是要进行读操作的驱动器号
+	mov	cx,#0x0002		; sector 2, track 0 ch是磁道号的低8位数，cl是低5位放入所读起始扇区号，位7-6表示磁道号的高2位
 	mov	bx,#0x0200		; address = 512, in INITSEG
-	mov	ax,#0x0200+SETUPLEN	; service 2, nr of sectors
+	; bx指向数据缓冲区,这里是数据段的偏移地址，但是为何是512呢，因为前512已经被我们用过了，还记得上面执行过一次从#BOOTSEG复制到#INITSEG共512字节的函数吗
+	mov	ax,#0x0200+SETUPLEN	; service 2, nr of sectors ah为调用的服务种类，这里是service2,al是读取的扇区数目
 	; 这里的是为了出发0x13号中断，上面设置ax、bx、cx、dx,仅仅是传递参数进去
-	int	0x13			; read it
-	jnc	ok_load_setup		; ok - continue
+	int	0x13			; read it 调用软中断，这里是intel定义的，不过通用，调用的是0x13软中断，为读中断
+	jnc	ok_load_setup		; ok - continue 成功的话就跳转到ok_load_setup继续执行
 	mov	dx,#0x0000
-	mov	ax,#0x0000		; reset the diskette
+	mov	ax,#0x0000		; reset the diskette 这里是如果失败了先进行清空软盘的操作
 	int	0x13
 	j	load_setup
 
@@ -101,29 +102,30 @@ ok_load_setup:
 ; Get disk drive parameters, specifically nr of sectors/track
 
 	mov	dl,#0x00
-	mov	ax,#0x0800		; AH=8 is get drive parameters
+	mov	ax,#0x0800		; AH=8 is get drive parameters ; 这里ax为ah为08是指获取磁盘信息
 	int	0x13
 	mov	ch,#0x00
-	seg cs
-	mov	sectors,cx
+	seg cs ; 这里表示操作数在cs段寄存器所指的段中
+	mov	sectors,cx ; 保存磁道的扇区数
 	mov	ax,#INITSEG
-	mov	es,ax
+	mov	es,ax ; 重新覆盖回es的值，上面执行的操作破坏了es
 
-; Print some inane message
+; Print some inane message ; 这里准备打印一些消息来提示用户
 
 	mov	ah,#0x03		; read cursor pos
-	xor	bh,bh
-	int	0x10
+	xor	bh,bh ; 按位逻辑异或,一个数和它自己本身进行逻辑异或操作，实际效果为清零
+	int	0x10 ; 触发屏幕打印中断
 	
 	mov	cx,#24
 	mov	bx,#0x0007		; page 0, attribute 7 (normal)
 	mov	bp,#msg1
 	mov	ax,#0x1301		; write string, move cursor
-	int	0x10
+	int	0x10 ; 触发屏幕打印中断
 
 ; ok, we've written the message, now
 ; we want to load the system (at 0x10000)
 
+; 此处就是读取磁盘加载系统到内存中的代码
 	mov	ax,#SYSSEG
 	mov	es,ax		; segment of 0x010000
 	call	read_it
@@ -157,6 +159,8 @@ root_defined:
 ; the bootblock:
 
 	jmpi	0,SETUPSEG
+
+; 以下就是子程序了这里就直接跳转走了
 
 ; This routine loads the system at address 0x10000, making sure
 ; no 64kB boundaries are crossed. We try to load it as fast as
