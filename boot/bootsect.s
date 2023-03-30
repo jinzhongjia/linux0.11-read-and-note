@@ -24,6 +24,7 @@ SYSSIZE = 0x3000
 
 ; TODO: 这里各段定义还没搞懂
 
+; 此处定义的是全局对外暴漏的字段，text，data,bss的开始和结束，这里几个段定义的起始地址都是一样的
 .globl begtext, begdata, begbss, endtext, enddata, endbss
 .text
 begtext:
